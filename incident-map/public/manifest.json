@@ -1,0 +1,10 @@
+{
+  "short_name": "Incident Map",
+  "name": "Enrich 911 emergency incident data and visualize on a map",
+  "icons": [
+  ],
+  "start_url": "./index.html",
+  "display": "standalone",
+  "theme_color": "#000000",
+  "background_color": "#ffffff"
+}
