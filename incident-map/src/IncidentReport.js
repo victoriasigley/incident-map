@@ -26,8 +26,11 @@ class IncidentMap extends Component {
   }
 
   async loadIncident() {
+    console.log(window.location);
+    const url = `http://${window.location.hostname}:8080/incident`;
     try {
-    const response = await axios.get('/incident', { cancelToken: this.cancelToken.token });
+      // const response = await axios.get('/incident', { cancelToken: this.cancelToken.token });
+      const response = await axios.get(url, { cancelToken: this.cancelToken.token });
       this.setState({ incident: response.data });
     } catch (error) {
       console.error(error);
@@ -38,9 +41,9 @@ class IncidentMap extends Component {
 
     const incident = { ...this.state.incident };
 
-    const position = [incident.address.latitude || 39, incident.address.longitude || -98];
+    const position = [incident.address ? (incident.address.latitude || 39) : 39, incident.address ? (incident.address.longitude || -98) : -98];
 
-    const mapMarkers = incident.apparatus.map(a =>
+    const mapMarkers = incident.apparatus ? incident.apparatus.map(a =>
       (Object.keys(a.unit_status)).forEach(u =>
       <Marker
         position={[a[u].latitude, a[u].longitude]}
@@ -52,7 +55,7 @@ class IncidentMap extends Component {
         </Popup>
       </Marker>
       )
-    );
+    ) : null;
 
     return (
     <div className="App">
