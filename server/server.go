@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -14,24 +15,24 @@ const (
 )
 
 type IncidentAddress struct {
-	AddressId       string `json:"address_id"`
-	AddressLine1    string `json:"address_line1"`
-	City            string `json:"city"`
-	CommonPlaceName string `json:"common_place_name"`
-	CrossStreet1    string `json:"cross_street1"`
-	CrossStreet2    string `json:"cross_street2"`
-	FirstDue        string `json:"first_due"`
-	GeoHash         string `json:"geohast"`
-	Latitude        string `json:"latitude"`
-	Longitude       string `json:"longitude"`
-	Name            string `json:"name"`
-	Number          string `json:"number"`
-	PostalCode      string `json:"postal_code"`
-	PrefixDirection string `json:"prefix_direction"`
-	ResponseZone    string `json:"response_zone"`
-	State           string `json:"state"`
-	SuffixDirection string `json:"suffix_direction"`
-	Type            string `json:"type"`
+	AddressId       string  `json:"address_id"`
+	AddressLine1    string  `json:"address_line1"`
+	City            string  `json:"city"`
+	CommonPlaceName string  `json:"common_place_name"`
+	CrossStreet1    string  `json:"cross_street1"`
+	CrossStreet2    string  `json:"cross_street2"`
+	FirstDue        string  `json:"first_due"`
+	GeoHash         string  `json:"geohast"`
+	Latitude        float64 `json:"latitude"`
+	Longitude       float64 `json:"longitude"`
+	Name            string  `json:"name"`
+	Number          string  `json:"number"`
+	PostalCode      string  `json:"postal_code"`
+	PrefixDirection string  `json:"prefix_direction"`
+	ResponseZone    string  `json:"response_zone"`
+	State           string  `json:"state"`
+	SuffixDirection string  `json:"suffix_direction"`
+	Type            string  `json:"type"`
 }
 
 type ApparatusExtendedData struct {
@@ -109,17 +110,48 @@ type Incident struct {
 	Version        string                 `json:"version"`
 }
 
+func upload(w http.ResponseWriter, req *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	err := req.ParseForm()
+	if err != nil {
+		log.Printf("Error getting multipart form: %+v", err)
+	}
+	_, fileHeader, err := req.FormFile("file")
+	if err != nil {
+		log.Printf("Error getting file: %+v", err)
+	}
+
+	jsonFile, err := fileHeader.Open()
+	defer jsonFile.Close()
+
+	byteValue, err := ioutil.ReadAll(jsonFile)
+	if err != nil {
+		log.Printf("Error reading file: %+v", err)
+	}
+
+	var incident Incident
+	json.Unmarshal(byteValue, &incident)
+
+	jsonData, err := json.Marshal(incident)
+	if err != nil {
+		log.Printf("Error marshalling incident: %+v", err)
+	}
+	fmt.Fprintf(w, string(jsonData))
+}
+
 func incident(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	incident := new(Incident)
 	jsonData, err := json.Marshal(incident)
 	if err != nil {
-		log.Printf("Error marshlling incident: %+v", err)
+		log.Printf("Error marshalling incident: %+v", err)
 	}
 	fmt.Fprintf(w, string(jsonData))
 }
 
 func main() {
+	http.HandleFunc("/upload", upload)
 
 	http.HandleFunc("/incident", incident)
 

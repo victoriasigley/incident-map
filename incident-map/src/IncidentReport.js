@@ -37,7 +37,6 @@ class IncidentMap extends Component {
   }
 
   async loadIncident() {
-    console.log(window.location);
     const url = `http://${window.location.hostname}:8080/incident`;
     try {
       // const response = await axios.get('/incident', { cancelToken: this.cancelToken.token });
@@ -49,11 +48,14 @@ class IncidentMap extends Component {
   }
 
   async onUpload() {
-    console.log(window.location);
-    const url = `http://${window.location.hostname}:8080/incident`;
+    const formData = new FormData();
+    formData.append('file', this.state.uploadFile);
+    const url = `http://${window.location.hostname}:8080/upload`;
     try {
-      // const response = await axios.post('/incident', this.state.uploadFile, { cancelToken: this.cancelToken.token });
-      const response = await axios.post(url, this.state.uploadFile, { cancelToken: this.cancelToken.token });
+      // const response = await axios.post('/upload', formData, { cancelToken: this.cancelToken.token });
+      const response = await axios.post(url, formData, { cancelToken: this.cancelToken.token });
+      console.log('onUpload');
+      console.log(response.data);
       this.setState({ incident: response.data });
     } catch (error) {
       console.error(error);
@@ -71,18 +73,21 @@ class IncidentMap extends Component {
     const position = [incident.address ? (incident.address.latitude || 39) : 39, incident.address ? (incident.address.longitude || -98) : -98];
 
     const mapMarkers = incident.apparatus ? incident.apparatus.map(a =>
-      (Object.keys(a.unit_status)).forEach(u =>
+      (Object.keys(a.unit_status)).map(u =>
       <Marker
-        position={[a[u].latitude, a[u].longitude]}
+        position={[a.unit_status[u].latitude, a.unit_status[u].longitude]}
       >
         <Popup>
-          {a.unit_type}<br/>
+          {a.unit_id}<br/>
           {u}<br/>
-          {a[u].timestamp}
+          {a.unit_status[u].timestamp}
         </Popup>
       </Marker>
       )
     ) : null;
+    console.log('render');
+    console.log(position);
+    console.log(mapMarkers);
 
     return (
     <div className="App">
