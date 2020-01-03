@@ -1,8 +1,10 @@
 import React, { Component } from 'react';
 import './App.css';
-import 'leaflet/dist/leaflet.css';
 import Dropzone from 'react-dropzone';
 import { Map, Marker, Popup, TileLayer } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+
 import axios from 'axios';
 import {
   Button,
@@ -11,6 +13,14 @@ import {
   DialogContent,
   DialogTitle,
 } from '@material-ui/core';
+
+delete L.Icon.Default.prototype._getIconUrl;
+
+L.Icon.Default.mergeOptions({
+      iconRetinaUrl: require('leaflet/dist/images/marker-icon-2x.png'),
+      iconUrl: require('leaflet/dist/images/marker-icon.png'),
+      shadowUrl: require('leaflet/dist/images/marker-shadow.png')
+});
 
 class IncidentMap extends Component {
   constructor(props) {
@@ -54,8 +64,6 @@ class IncidentMap extends Component {
     try {
       // const response = await axios.post('/upload', formData, { cancelToken: this.cancelToken.token });
       const response = await axios.post(url, formData, { cancelToken: this.cancelToken.token });
-      console.log('onUpload');
-      console.log(response.data);
       this.setState({ incident: response.data });
     } catch (error) {
       console.error(error);
@@ -69,8 +77,10 @@ class IncidentMap extends Component {
 
   render() {
     const incident = { ...this.state.incident };
+    const address = incident.address || {};
+    const description = incident.description || {};
 
-    const position = [incident.address ? (incident.address.latitude || 39) : 39, incident.address ? (incident.address.longitude || -98) : -98];
+    const position = [(address.latitude || 39), (address.longitude || -98)];
 
     const mapMarkers = incident.apparatus ? incident.apparatus.map(a =>
       (Object.keys(a.unit_status)).map(u =>
@@ -85,9 +95,6 @@ class IncidentMap extends Component {
       </Marker>
       )
     ) : null;
-    console.log('render');
-    console.log(position);
-    console.log(mapMarkers);
 
     return (
     <div className="App">
@@ -101,14 +108,27 @@ class IncidentMap extends Component {
           Upload Incident File
         </Button>
       </header>
-      <p>{incident.description ? incident.description.comments : ''}</p>
+      <p>{incident.description.comments}</p>
       <div style={{ height: '500px', width: '100%' }}>
         <Map center={position} zoom={13}>
           <TileLayer
              attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
              url='https://{s}.tile.osm.org/{z}/{x}/{y}.png'
            />
-        {mapMarkers}
+           {address.latitude && address.longitude &&
+           <Marker position={position}>
+             <Popup>
+               <b><u>INCIDENT LOCATION</u></b><br/>
+               <b>Address:</b><br/>
+               {address.common_place_name}<br/>
+               {address.address_line1}<br/>
+               {address.city}, {address.state} {address.postal_code}
+               <br/><br/>
+               <b>Cross Street: </b>{address.cross_street1} AND {address.cross_street2}
+             </Popup>
+           </Marker>
+           }
+           {mapMarkers}
         </Map>
       </div>
       <Dialog open={this.state.uploadDialogOpen}>
