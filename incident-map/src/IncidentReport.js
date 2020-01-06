@@ -108,7 +108,7 @@ class IncidentMap extends Component {
           Upload Incident File
         </Button>
       </header>
-      <p>{incident.description.comments}</p>
+      <p>{description.comments}</p>
       <div style={{ height: '500px', width: '100%' }}>
         <Map center={position} zoom={13}>
           <TileLayer

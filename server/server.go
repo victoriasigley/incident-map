@@ -1,8 +1,10 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
+	_ "github.com/lib/pq"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -12,6 +14,15 @@ import (
 
 const (
 	webRootEnv = "INCIDENT_MAP_WEBROOT"
+
+	// Postgres constants
+	host   = "localhost"
+	port   = 5432
+	user   = "postgres"
+	dbname = "postgres"
+	// Postgres queries
+	uploadIncidentQuery  = "SELECT * FROM incident_report.upload_report($1, $2, $3, $4, $5, $6);"
+	getLastIncidentQuery = "SELECT address, apparatus, description, fire_department, version FROM incident_report.get_last_incident();"
 )
 
 type IncidentAddress struct {
@@ -110,26 +121,41 @@ type Incident struct {
 	Version        string                 `json:"version"`
 }
 
+type Incident2 struct {
+	Address        []byte `json:"address"`
+	Apparatus      []byte `json:"apparatus"`
+	Description    []byte `json:"description"`
+	FireDepartment []byte `json:"fire_department"`
+	Version        string `json:"version"`
+}
+
 func upload(w http.ResponseWriter, req *http.Request) {
+	// Allow this function to be accessed when called from app on other port
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
+	// Parse the request form
 	err := req.ParseForm()
 	if err != nil {
 		log.Printf("Error getting multipart form: %+v", err)
 	}
+
+	// Parse the file header
 	_, fileHeader, err := req.FormFile("file")
 	if err != nil {
 		log.Printf("Error getting file: %+v", err)
 	}
 
+	// Open the file and defer closing it so we can read from it
 	jsonFile, err := fileHeader.Open()
 	defer jsonFile.Close()
 
+	// Read the file
 	byteValue, err := ioutil.ReadAll(jsonFile)
 	if err != nil {
 		log.Printf("Error reading file: %+v", err)
 	}
 
+	// Unmarshal file into incident struct
 	var incident Incident
 	json.Unmarshal(byteValue, &incident)
 
@@ -137,16 +163,66 @@ func upload(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		log.Printf("Error marshalling incident: %+v", err)
 	}
+
+	// Connect to postgres db
+	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
+		"dbname=%s sslmode=disable",
+		host, port, user, dbname)
+	db, err := sql.Open("postgres", psqlInfo)
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+
+	// Insert record to db
+	address, _ := json.Marshal(incident.Address)
+	apparatus, _ := json.Marshal(incident.Apparatus)
+	description, _ := json.Marshal(incident.Description)
+	fireDepartment, _ := json.Marshal(incident.FireDepartment)
+	version, _ := json.Marshal(incident.Version)
+	_, err = db.Query(uploadIncidentQuery, incident.Description.EventId, address, apparatus, description, fireDepartment, version)
+	if err != nil {
+		log.Printf("Error inserting incident in database: %+v", err)
+	}
+
 	fmt.Fprintf(w, string(jsonData))
 }
 
 func incident(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-	incident := new(Incident)
+	var incident Incident
+
+	// Connect to postgres db
+	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
+		"dbname=%s sslmode=disable",
+		host, port, user, dbname)
+	db, err := sql.Open("postgres", psqlInfo)
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+
+	// Get latest incident data from the database
+	var address []byte
+	var apparatus []byte
+	var description []byte
+	var fireDepartment []byte
+	var version []byte
+	row := db.QueryRow(getLastIncidentQuery)
+	row.Scan(&address, &apparatus, &description, &fireDepartment, &version)
+
+	// Unmarshal return values into appropriate incident fields
+	json.Unmarshal(address, &incident.Address)
+	json.Unmarshal(apparatus, &incident.Apparatus)
+	json.Unmarshal(description, &incident.Description)
+	json.Unmarshal(fireDepartment, &incident.FireDepartment)
+	json.Unmarshal(version, &incident.Version)
+
 	jsonData, err := json.Marshal(incident)
 	if err != nil {
 		log.Printf("Error marshalling incident: %+v", err)
 	}
+
 	fmt.Fprintf(w, string(jsonData))
 }
 
