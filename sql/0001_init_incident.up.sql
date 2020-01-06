@@ -27,6 +27,15 @@ CREATE OR REPLACE FUNCTION incident_report.upload_report(incident_number text, a
   BEGIN
     time_now := now();
   INSERT INTO incident_report.incident_data(incident_number, address, apparatus, description, fire_department, version, uploaded)
-  VALUES ($1, $2, $3, $4, $5, $6, time_now);
+  VALUES ($1, $2, $3, $4, $5, $6, time_now)
+  /*
+   *ON CONFLICT ON CONSTRAINT incident_data_pkey
+   *DO UPDATE SET
+   *  address = EXCLUDED.address,
+   *  apparatus = EXCLUDED.address,
+   *  fire_department = EXCLUDED.fire_department,
+   *  version = EXCLUDED.version
+   */
+    ;
   END
 $$;
