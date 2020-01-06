@@ -4,6 +4,7 @@ import Dropzone from 'react-dropzone';
 import { Map, Marker, Popup, TileLayer } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import moment from 'moment';
 
 import axios from 'axios';
 import {
@@ -79,27 +80,47 @@ class IncidentMap extends Component {
     const incident = { ...this.state.incident };
     const address = incident.address || {};
     const description = incident.description || {};
+    const apparatus = incident.apparatus || [];
 
     const position = [(address.latitude || 39), (address.longitude || -98)];
 
-    const mapMarkers = incident.apparatus ? incident.apparatus.map(a =>
-      (Object.keys(a.unit_status)).map(u =>
-      <Marker
-        position={[a.unit_status[u].latitude, a.unit_status[u].longitude]}
-      >
-        <Popup>
-          {a.unit_id}<br/>
-          {u}<br/>
-          {a.unit_status[u].timestamp}
-        </Popup>
-      </Marker>
-      )
+    const mapMarkers = apparatus ? apparatus.map(a => {
+      const filteredKeys = Object.keys(a.unit_status).filter(x => a.unit_status[x].latitude || a.unit_status[x].longitude);
+      const sortedKeys = filteredKeys.sort((x, y) => {
+        const isBefore = moment(a.unit_status[x].timestamp).isBefore(a.unit_status[y].timestamp);
+        return isBefore ? 1 : -1;
+      });
+      return (sortedKeys.map((u, index) => {
+        const isMostRecent = index === 0;
+        const hasMarker = a.unit_status[u].latitude || a.unit_status[u].longitude;
+        return (
+          hasMarker ?
+          <Marker
+            key={index}
+            position={[a.unit_status[u].latitude, a.unit_status[u].longitude]}
+            opacity={isMostRecent ? 1 : 0.3}
+          >
+            <Popup>
+              <b>{a.unit_id}</b><br/>
+              {u}<br/>
+              {moment(a.unit_status[u].timestamp).format("MMM D YYYY, h:mm:ss a")}
+          </Popup>
+        </Marker>
+        : null
+      );
+      }));
+    }
     ) : null;
 
     return (
     <div className="App">
       <header className="App-header">
-        <p>{incident.fire_department ? incident.fire_department.name : ''}</p>
+        {incident.fire_department ?
+        <p>
+          {incident.fire_department.name}<br/>
+          Shift {incident.fire_department.shift}
+        </p>
+        : ''}
         <Button
           style={{ float: 'right', margin: '10px' }}
           variant='contained'
@@ -129,7 +150,30 @@ class IncidentMap extends Component {
            </Marker>
            }
            {mapMarkers}
-        </Map>
+         </Map>
+         {description.extended_data &&
+         <p>
+           <b>Dispatch Statistics:</b><br/>
+           Dispatch Duration: {description.extended_data.dispatch_duration} seconds<br/>
+           Event Duration: {description.extended_data.event_duration} seconds<br/>
+           Response Time: {description.extended_data.response_time} seconds<br/>
+         </p>
+         }
+         {description.first_unit_dispatched &&
+           <p>
+             <b>First unit dispatched:</b> {moment(description.first_unit_dispatched).format("MMM D YYYY, h:mm:ss a")}
+          </p>
+          }
+         {description.first_unit_enroute &&
+           <p>
+             <b>First unit enroute:</b> {moment(description.first_unit_enroute).format("MMM D YYYY, h:mm:ss a")}
+          </p>
+          }
+         {description.first_unit_arrived &&
+           <p>
+             <b>First unit arrived:</b> {moment(description.first_unit_arrived).format("MMM D YYYY, h:mm:ss a")}
+          </p>
+          }
       </div>
       <Dialog open={this.state.uploadDialogOpen}>
         <DialogTitle>Upload Incident File</DialogTitle>
